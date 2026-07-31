@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAVM - Sistema de Avaliação Virtual Mazivila</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;font-family:Arial}
+body{margin:0;background:#f4f6f9}
+header{background:#0a4d68;color:#fff;padding:20px;text-align:center}
+header h1{margin:0;font-size:24px}
+header p{margin:5px 0 0;font-size:14px;opacity:0.9}
+.container{max-width:900px;margin:20px auto;padding:20px;background:#fff;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.1)}
+input,textarea{width:100%;padding:8px;margin:5px 0;border:1px solid #ccc;border-radius:4px}
+.pergunta{border:1px dashed #0a4d68;padding:15px;margin:15px 0;border-radius:6px;background:#f8f9fa}
+.btn{background:#0a4d68;color:#fff;border:none;padding:10px 18px;border-radius:5px;cursor:pointer;margin:5px;font-weight:bold}
+.btn:hover{opacity:0.9}
+.btn-green{background:#28a745}.btn-red{background:#dc3545}
+.hidden{display:none}
+#tela-aluno{position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;padding:15px}
+#contadorSaidas{position:fixed;top:10px;right:10px;background:#dc3545;color:#fff;padding:10px;border-radius:8px;font-weight:bold;z-index:10000}
+.comprovativo{text-align:center;padding:30px;background:#d4edda;border:3px solid #28a745;border-radius:10px}
+.nota{font-size:50px;color:#28a745;font-weight:bold;margin:15px 0}
+.questao{margin:20px 0;padding-bottom:10px;border-bottom:1px solid #eee}
+.escola-cabecalho{text-align:center;padding:10px;background:#0a4d68;color:#fff;margin-bottom:15px;border-radius:5px}
+footer{text-align:center;padding:15px;font-size:12px;color:#666;margin-top:20px}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Escola Secundária de Mazivila</h1>
+  
+  <p>SAVM-Sistema de Avaliação Virtual Mazivila</p>
+</header>
+
+<div class="container" id="tela-prof">
+  <h2>I.Dados</h2>
+  <label>Tipo de Avaliação <input id="tipo" placeholder=" 1ª ACS, 2ªACS, Teste de recuperação, Trabalho"></label>
+  <label>Disciplina <input id="disciplina" placeholder=""></label>
+  <label>Classe <input id="classe" placeholder=""></label>
+  <label>Data de avaliação<input id="data" type="date"></label>
+  <label>Nº do WhatsApp do professor<input id="whats" placeholder="+258XXXXXXXX"></label>
+  <label>Nº de Perguntas <input id="nPerg" type="number" placeholder=""></label>
+  <label>Cotação Total <input id="cot" type="number" value="20"></label>
+  <label>Nº de saídas permitidas <input id="saidas" type="number" value="3"></label>
+
+  <h2>II.Perguntas da avaliação</h2>
+  <div id="perguntas"></div>
+  <button class="btn" onclick="addP()">+ Adicionar Pergunta</button>
+
+  <h2>III.Gerar Avaliação</h2>
+  <button class="btn btn-green" onclick="preview()">Pré-visualizar</button>
+  <button class="btn" onclick="gerar()">Gerar Link do Teste</button>
+  <div id="link" class="hidden" style="background:#e7f3ff;padding:15px;margin-top:10px;border-radius:5px"></div>
+</div>
+
+<div id="tela-aluno" class="hidden"></div>
+
+<footer>
+  SAVM v1.0 - Sistema de Avaliação Virtual Mazivila © 2026
+</footer>
+
+<script>
+const { jsPDF } = window.jspdf;
+let banco=[], aluno={}, saidas=3, perguntas=[], respostasAluno=[], cont=0, config=null, travou=false, notaFinal=0, cotacaoFinal=20;
+const NOME_ESCOLA = "Escola Secundária de Mazivila";
+const $ = id => document.getElementById(id);
+
+function addP(){
+  const i=cont++;
+  const div = document.createElement('div');
+  div.className = 'pergunta';
+  div.id = 'p'+i;
+  div.innerHTML = `<button style="float:right;background:#dc3545;color:#fff;border:none;padding:5px 10px;border-radius:3px" onclick="this.parentElement.remove()">X</button>
+    <label><b>Pergunta ${i+1}</b></label><textarea id="e${i}" placeholder="Digite a pergunta"></textarea>
+    <small style="color:#dc3545;font-weight:bold">* Marque a alternativa correta</small>
+    <label><input type="radio" name="c${i}" value="0"> <input id="o${i}0" placeholder="Opção A"></label>
+    <label><input type="radio" name="c${i}" value="1"> <input id="o${i}1" placeholder="Opção B"></label>
+    <label><input type="radio" name="c${i}" value="2"> <input id="o${i}2" placeholder="Opção C"></label>
+    <label><input type="radio" name="c${i}" value="3"> <input id="o${i}3" placeholder="Opção D"></label>`;
+  $('perguntas').appendChild(div);
+}
+addP(); addP();
+
+function formatarWhats(num){
+  let n = num.replace(/\D/g,''); // tira tudo que não é número
+  if(n.startsWith('258')) return n; // já tem 258
+  if(n.startsWith('0')) n = n.substring(1); // tira o 0 inicial
+  return '258' + n; // adiciona 258
+}
+
+function coletar(){
+  banco=[];
+  document.querySelectorAll('.pergunta').forEach(p=>{
+    const i=p.id.substring(1);
+    const en=$('e'+i)?.value.trim();
+    const ce=$(`input[name="c${i}"]:checked`);
+    const op=[0,1,2,3].map(j=>$(`o${i}${j}`)?.value.trim()||"").filter(x=>x!="");
+
+    if(en && op.length >= 2){
+      banco.push({enun:en, opcoes:op, certa:ce?parseInt(ce.value):0});
+    }
+  });
+
+  if(banco.length == 0){
+    alert("Adicione pelo menos 1 pergunta completa com 2 opções!");
+    return null;
+  }
+
+  return {
+    tipo:$('tipo').value, disciplina:$('disciplina').value, classe:$('classe').value, data:$('data').value,
+    whats:formatarWhats($('whats').value), nPerg:$('nPerg').value, cotacao:$('cot').value, saidas:$('saidas').value,
+    senha:`SAVM-${$('classe').value}-${$('disciplina').value}-${$('tipo').value}-${$('data').value}`.toUpperCase(),
+    perguntas:banco
+  }
+}
+
+const cod = c => btoa(encodeURIComponent(JSON.stringify(c)));
+const dec = c => JSON.parse(decodeURIComponent(atob(c)));
+
+function preview(){
+  const c=coletar();
+  if(!c) return;
+  window.open(location.href.split('?')[0]+'?t='+cod(c)+'&p=1','_blank');
+}
+
+function gerar(){
+  const c=coletar();
+  if(!c) return;
+  if(!c.whats){alert("Preencha o WhatsApp do professor");return;}
+  const link=location.href.split('?')[0]+'?t='+cod(c);
+  $('link').classList.remove('hidden');
+  $('link').innerHTML=`<b>Link da Avaliação SAVM:</b><br><a href="${link}" target="_blank">${link}</a><br><b>Senha de Segurança:</b> ${c.senha}`;
+}
+
+function verificarBloqueio(num,senha){
+  try{ return JSON.parse(localStorage.getItem('BLOQ_'+senha)||'[]').includes(num); } catch(e){ return false; }
+}
+
+function salvarBloqueio(num,senha){
+  try{
+    let l=JSON.parse(localStorage.getItem('BLOQ_'+senha)||'[]');
+    if(!l.includes(num)) l.push(num);
+    localStorage.setItem('BLOQ_'+senha,JSON.stringify(l));
+  } catch(e){}
+}
+
+function abrir(){
+  const u=new URLSearchParams(location.search); const t=u.get('t'); if(!t) return;
+  config=dec(t);
+  if(u.get('p')!='1') $('tela-prof').classList.add('hidden');
+  $('tela-aluno').classList.remove('hidden');
+  saidas=parseInt(config.saidas)||3;
+  $('tela-aluno').innerHTML=`<div id="contadorSaidas">Saídas: ${saidas}</div>
+  <div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div>
+  <h3>Avaliação Virtual</h3><p style="background:#fff3cd;padding:10px"><b>ATENÇÃO: Não saia da aba durante o teste!</b></p>
+  <p><b>${config.tipo} - ${config.disciplina} - Cotação: ${config.cotacao} valores</b></p>
+  <label>Nome Completo<input id="n"></label><label>Turma<input id="tu"></label><label>Nº<input id="num"></label>
+  <button class="btn btn-green" onclick="iniciar()">Iniciar Avaliação</button>`;
+}
+
+function iniciar(){
+  aluno={nome:$('n').value.trim(),turma:$('tu').value.trim(),num:$('num').value.trim()};
+  if(!aluno.nome||!aluno.turma||!aluno.num){alert("Preencha todos os dados");return;}
+  if(verificarBloqueio(aluno.num, config.senha)){ $('tela-aluno').innerHTML=`<div class="comprovativo"><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h2>ACESSO BLOQUEADO</h2><p>Aluno Nº ${aluno.num} já realizou esta avaliação.</p></div>`; return; }
+  montar();
+  document.addEventListener('visibilitychange',contar);
+}
+
+function contar(){
+  if(travou||!document.hidden) return;
+  saidas--; if($('contadorSaidas')) $('contadorSaidas').innerText='Saídas: '+saidas;
+  if(saidas<=0) finalizar(true);
+}
+
+function embaralhar(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a}
+
+function salvarResposta(i, val){ respostasAluno[i] = parseInt(val); }
+
+function montar(){
+  document.removeEventListener('visibilitychange',contar);
+  respostasAluno = [];
+  let basePerg = [...config.perguntas];
+  if(config.nPerg && config.nPerg!= "") basePerg=basePerg.slice(0,parseInt(config.nPerg));
+
+  perguntas = [];
+  let valorQuestao = (parseFloat(config.cotacao)/basePerg.length).toFixed(1);
+  let html=`<div id="contadorSaidas">Saídas: ${saidas}</div>
+  <div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div>
+  <h3>${config.disciplina} - ${config.tipo}</h3>
+  <div style="background:#f0f8ff;padding:10px;border-radius:5px"><p><b>Aluno:</b> ${aluno.nome} | <b>Turma:</b> ${aluno.turma} | <b>Nº:</b> ${aluno.num}</p><p><b>Total de Questões:</b> ${basePerg.length} | <b>Cada questão vale:</b> ${valorQuestao} valores</p></div>`;
+
+  basePerg.forEach((p,i)=>{
+    let ops=p.opcoes.map((o,j)=>({txt:o, idx:j}));
+    ops=embaralhar(ops);
+    perguntas.push({gab:p.certa});
+
+    html+=`<div class="questao"><p><b>${i+1}.</b> ${p.enun}</p>`;
+    ops.forEach((o,j)=>html+=`<label style="display:block;margin:5px 0"><input type="radio" name="q${i}" value="${o.idx}" onchange="salvarResposta(${i},${o.idx})"> ${o.txt}</label>`);
+    html+=`</div>`;
+  });
+  html+=`<button class="btn btn-red" onclick="finalizar(false)">FINALIZAR E ENVIAR AVALIAÇÃO</button>`;
+  $('tela-aluno').innerHTML=html;
+  document.addEventListener('visibilitychange',contar);
+}
+
+function finalizar(forca){
+  if(travou) return;
+  if(!forca){
+    if(respostasAluno.length < perguntas.length || respostasAluno.includes(undefined)){
+      alert("Responde todas as perguntas antes de enviar!");
+      return;
+    }
+  }
+  travou=true;
+  document.removeEventListener('visibilitychange',contar);
+  salvarBloqueio(aluno.num, config.senha);
+
+  let ac=0;
+  perguntas.forEach((p,i)=>{ if(respostasAluno[i] === p.gab) ac++; });
+
+  const totalQ = perguntas.length;
+  cotacaoFinal = parseFloat(config.cotacao) || 20;
+  notaFinal = totalQ > 0? ((ac / totalQ) * cotacaoFinal).toFixed(1) : 0;
+
+  gerarPDF(notaFinal,ac,totalQ,cotacaoFinal,forca);
+  setTimeout(()=>{ enviarAutoWhats(notaFinal, ac, totalQ, forca); }, 1500);
+
+  $('tela-aluno').innerHTML=`<div class="comprovativo"><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h2>✓ AVALIAÇÃO ENVIADA</h2>
+  <p>${forca?'AVALIAÇÃO FECHADA POR EXCESSO DE SAÍDAS':'Enviada com sucesso'}</p>
+  <p><b>${aluno.nome}</b> - Turma ${aluno.turma}</p>
+  <p>Acertos: ${ac} de ${totalQ}</p>
+  <div class="nota">${notaFinal} / ${cotacaoFinal}</div>
+  <p style="color:#25D366"><b>1. PDF baixado automaticamente</b><br><b>2. Clique em ENVIAR no WhatsApp</b></p></div>`;
+  setTimeout(()=>{$('tela-aluno').innerHTML=`<div class="comprovativo"><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h2>FINALIZADO</h2><p>Obrigado por participar</p></div>`},10000);
+}
+
+function gerarPDF(nota,ac,totalQ,cot,forca){
+  try{
+    const doc=new jsPDF();
+    doc.setFontSize(16); doc.text(NOME_ESCOLA,105,20,{align:"center"});
+    doc.setFontSize(12); doc.text("COMPROVATIVO DE AVALIAÇÃO",105,28,{align:"center"});
+    if(forca) doc.setTextColor(220,53,69), doc.text("STATUS: FECHADO POR SAIDAS",105,36,{align:"center"}), doc.setTextColor(0,0,0);
+    doc.setFontSize(11);
+    doc.text(`Aluno: ${aluno.nome}`,20,50);
+    doc.text(`Turma: ${aluno.turma} Nº: ${aluno.num}`,20,60);
+    doc.text(`Disciplina: ${config.disciplina} - ${config.tipo}`,20,70);
+    doc.text(`Data: ${config.data}`,20,80);
+    doc.text(`Total Questões: ${totalQ}`,20,90);
+    doc.text(`Acertos: ${ac} de ${totalQ}`,20,100);
+    doc.setFontSize(18); doc.text(`NOTA FINAL: ${nota} / ${cot} valores`,20,115);
+    doc.setFontSize(9); doc.text(`Sistema: SAVM - Sistema de Avaliação Virtual Mazivila`,105,130,{align:"center"});
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-MZ')}`,105,138,{align:"center"});
+    doc.save(`Comprovativo_${NOME_ESCOLA.split(' ').pop()}_${aluno.num}.pdf`);
+  }catch(e){}
+}
+
+function enviarAutoWhats(nota, ac, total, forca){
+  const num = config.whats;
+  const motivo = forca? "FECHADO POR SAIDAS" : "FINALIZADO";
+  const msg = `*${NOME_ESCOLA}*\n*COMPROVATIVO DE AVALIAÇÃO*\n\n`+
+              `*Disciplina:* ${config.disciplina}\n`+
+              `*Tipo:* ${config.tipo}\n`+
+              `*Aluno:* ${aluno.nome}\n`+
+              `*Turma:* ${aluno.turma} | *Nº:* ${aluno.num}\n`+
+              `*Status:* ${motivo}\n`+
+              `*Total Questões:* ${total}\n`+
+              `*Acertos:* ${ac} de ${total}\n`+
+              `*NOTA FINAL:* ${nota} / ${cotacaoFinal} valores\n`+
+              `*INSTRUÇÃO:* Anexe o PDF e envie.`;
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+if(location.search.includes('t=')) abrir();
+</script>
+</body>
+</html>
