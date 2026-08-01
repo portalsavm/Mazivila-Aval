@@ -1,1 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAVM</title>
+<style>
+:root{--v:#0a7;--r:#c0392b;--g:#f5f7fa}*{box-sizing:border-box;font-family:Segoe UI,Arial}
+body{margin:0;background:var(--g)}header{background:var(--v);color:#fff;padding:12px 16px}
+.wrap{max-width:900px;margin:16px auto;padding:0 12px}.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+input,select,button,textarea{padding:9px;border:1px solid #ccc;border-radius:6px;width:100%}
+.btn{background:var(--v);color:#fff;border:0;font-weight:600;cursor:pointer}
+.btn-green{background:#27ae60}.btn-red{background:var(--r)}.btn-orange{background:#e67e22}
+.hidden{display:none}.q{border:1px dashed #ccc;padding:10px;border-radius:8px;margin:8px 0}
+small{color:#a00;font-size:11px}.pill{display:inline-block;padding:3px 8px;border-radius:20px;background:#eee;font-size:12px}
+</style>
+</head>
+<body>
+<header><b>SAVM</b> Sistema Avaliações</header>
+<div class="wrap">
 
+<div class="card"><h2>Painel do Professor</h2>
+<div class="grid">
+<label>Disciplina<input id="d"></label>
+<label>Tipo<input id="t"></label>
+<label>Data<input id="data" type="date"></label>
+<label>Tempo min<input id="tempo" type="number" value="40"></label>
+<label>Saídas<input id="saidas" type="number" value="2"></label>
+<label>WhatsApp Prof<input id="whats" placeholder="25884xxxxxxx"></label>
+</div>
+<button class="btn" onclick="addP()">+ Pergunta</button>
+<button class="btn btn-orange" onclick="gerar()">Gerar Link do Teste</button>
+<div id="link" style="margin-top:10px"></div>
+</div>
+
+<div id="ps"><b id="totalP"></b></div>
+
+<div id="aluno" class="card hidden"><h2>Iniciar Prova</h2>
+<div class="grid">
+<label>Nº<input id="num"></label>
+<label>Nome<input id="nome"></label>
+<label>Turma<input id="tu" maxlength="2" placeholder="A ou A5"><small>Máx 2 caracteres. Ex: A, 10, B5</small></label>
+</div>
+<button class="btn btn-green" onclick="iniciar()">Iniciar Prova</button>
+<p id="erro" style="color:var(--r)"></p>
+</div>
+
+<div id="prova" class="card hidden">
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap"><b id="cab"></b><span class="pill">Saídas: <b id="nSaidas">0</b></span><b id="timer"></b></div>
+<div id="qs"></div>
+<button class="btn btn-red" onclick="entregar()">Entregar</button>
+</div>
+
+</div>
+<script>
+const FIREBASE_URL = "https://maziva--links-default-rtdb.firebaseio.com/links.json"; // <-- SEU FIREBASE
+let cfg={},ps=[],rs={},ti;const $=i=>document.getElementById(i);
+const cod=obj=>btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+const dec=str=>JSON.parse(decodeURIComponent(escape(atob(str))));
+
+function addP(){ps.push({t:'objetiva',p:'',o:['','','',''],c:0});render()}
+function render(){
+  $('totalP').innerText=`Total de Perguntas: ${ps.length}`;
+  $('ps').innerHTML=ps.map((q,i)=>`<div class="card q"><b>Pergunta ${i+1}</b><select onchange="ps[${i}].t=this.value"><option value="objetiva">Objetiva</option><option value="texto">Texto</option></select><input placeholder="Enunciado" oninput="ps[${i}].p=this.value">${q.t==='objetiva'?q.o.map((o,j)=>`<input placeholder="Opção ${j+1}" value="${o}" oninput="ps[${i}].o[${j}]=this.value"><input type="radio" name="c${i}" ${q.c==j?'checked':''} onchange="ps[${i}].c=${j}"> Correta`).join(''):'<textarea placeholder="Dissertativa" oninput="ps[${i}].p2=this.value"></textarea>'}<button class="btn-red" onclick="ps.splice(${i},1);render()">Remover</button></div>`).join('')
+}
+async function gerar(){if(!$('d').value||!$('t').value||!$('data').value){alert('Preencha Disciplina, Tipo e Data');return}
+cfg={d:$('d').value,t:$('t').value,data:$('data').value,tempo:+$('tempo').value,saidas:+$('saidas').value,senha:`SAVM-${$('d').value}-${$('t').value}-${$('data').value}`.toUpperCase(),ps};
+let id=Math.random().toString(36).substr(2,6).toUpperCase();
+let linkGigante=location.origin+location.pathname+'?t='+cod(cfg);
+let linkCurto=`${location.origin}/Mazivila-Aval/go.html?id=${id}`; // <- AQUI MUDOU
+$('link').innerHTML=`Gerando...`;
+await fetch(FIREBASE_URL,{method:"POST",body:JSON.stringify({[id]:linkGigante})});
+$('link').innerHTML=`<b>✓ Link Gerado:</b><br><a href="${linkCurto}" target="_blank">${linkCurto}</a><br><br><button class="btn btn-green" onclick="mandarWhats('${linkCurto}')">Enviar no WhatsApp</button>`}
+function mandarWhats(link){const num=$('whats').value; window.open(`https://wa.me/${num}?text=Prova SAVM: ${link}`)}
+
+function check(){let u=new URLSearchParams(location.search).get('t');if(u){cfg=dec(u);$('aluno').classList.remove('hidden');$('cab').innerText=cfg.d+' - '+cfg.t+' - '+cfg.tempo+'min';$('nSaidas').innerText=cfg.saidas}}
+function iniciar(){let a={num:$('num').value.trim(),nome:$('nome').value.trim(),turma:$('tu').value.trim().toUpperCase()};
+if(!a.num||!a.nome||!a.turma){alert('Preencha todos os campos');return}
+if(a.turma.length<1||a.turma.length>2){alert('ERRO: Turma só pode ter 1 ou 2 caracteres.\nEx: A, 10, B5');$('tu').style.border='2px solid red';$('tu').focus();return}
+$('tu').style.border='1px solid #ccc';
+let chave=`BLOQ_${cfg.senha}_${a.turma}`;let l=JSON.parse(localStorage.getItem(chave)||'[]');
+if(l.includes(a.num)){$('erro').innerText='Você já realizou esta prova nesta turma.';return}
+l.push(a.num);localStorage.setItem(chave,JSON.stringify(l));
+$('aluno').classList.add('hidden');$('prova').classList.remove('hidden');
+$('qs').innerHTML=cfg.ps.map((q,i)=>`<div class="q"><b>${i+1}. ${q.p}</b>${q.t==='objetiva'?q.o.map((o,j)=>`<label><input type="radio" name="q${i}" value="${j}"> ${o}</label><br>`).join(''):`<textarea rows=3 oninput="rs[${i}]=this.value"></textarea>`}</div>`).join('');
+let s=cfg.tempo*60;ti=setInterval(()=>{let m=Math.floor(s/60),sec=s%60;$('timer').innerText=`${m}:${sec<10?'0':''}${sec}`;if(--s<0){clearInterval(ti);entregar()}},1000)}
+function entregar(){clearInterval(ti);let ac=0,tot=cfg.ps.filter(q=>q.t==='objetiva').length;
+cfg.ps.forEach((q,i)=>{let sel=document.querySelector(`input[name=q${i}]:checked`);if(sel&&+sel.value==q.c)ac++});
+alert('Prova entregue!\nTotal Perguntas: '+cfg.ps.length+'\nNota: '+ (tot>0?(ac/tot*20).toFixed(1):'N/A') +'/20');$('prova').classList.add('hidden')}
+check();$('tu').addEventListener('input',e=>e.target.value=e.target.value.toUpperCase())
+</script></body></html>
