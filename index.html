@@ -127,14 +127,36 @@ function preview(){
 }
 
 function gerar(){
-  const c=coletar();
-  if(!c) return;
-  if(!c.whats){alert("Preencha o WhatsApp do professor");return;}
-  const link=location.href.split('?')[0]+'?t='+cod(c);
-  $('link').classList.remove('hidden');
-  $('link').innerHTML=`<b>Link da Avaliação SAVM:</b><br><a href="${link}" target="_blank">${link}</a><br><b>Senha de Segurança:</b> ${c.senha}`;
-}
+  const FIREBASE_URL = "https://maziva--links-default-rtdb.firebaseio.com/links.json";
 
+function gerarID(){ return Math.random().toString(36).substr(2,6).toUpperCase(); }
+
+async function gerarLink(){
+  const id = gerarID();
+  const config = { // pega as config da prova
+    tipo: $('tipo').value,
+    disciplina: $('disciplina').value,
+    classe: $('classe').value,
+    data: $('data').value,
+    nPerg: $('nPerg').value,
+    cotacao: $('cotacao').value,
+    saidas: $('saidas').value,
+    senha: $('senha').value,
+    perguntas: perguntas // tua variável de perguntas
+  };
+  const linkGigante = location.origin + location.pathname + '?t=' + encodeURIComponent(btoa(JSON.stringify(config)));
+  const linkCurto = `${location.origin}/Mazivila-Aval/s/${id}`;
+
+  // SALVA NO FIREBASE AUTOMATICO
+  await fetch(FIREBASE_URL, {
+    method: "POST",
+    body: JSON.stringify({ [id]: linkGigante })
+  });
+
+  // MANDA PRO WHATSAPP
+  window.open(`https://wa.me/258${whats}?text=Prova SAVM: ${linkCurto}`);
+  alert(`Link Curto Criado: ${linkCurto}`);
+}
 function verificarBloqueio(num,senha){
   try{ return JSON.parse(localStorage.getItem('BLOQ_'+senha)||'[]').includes(num); } catch(e){ return false; }
 }
