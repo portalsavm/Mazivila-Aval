@@ -54,7 +54,7 @@ small{color:#a00;font-size:11px}.pill{display:inline-block;padding:3px 8px;borde
 </div>
 <script>
 const FIREBASE_URL = "https://maziva--links-default-rtdb.firebaseio.com/links.json"; // <-- SEU FIREBASE
-let cfg={},ps=[],rs={},ti;const $=i=>document.getElementById(i);
+let cfg={},ps=[],rs={},ti,ultimoLink="";const $=i=>document.getElementById(i);
 const cod=obj=>btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 const dec=str=>JSON.parse(decodeURIComponent(escape(atob(str))));
 
@@ -67,15 +67,17 @@ async function gerar(){if(!$('d').value||!$('t').value||!$('data').value){alert(
 cfg={d:$('d').value,t:$('t').value,data:$('data').value,tempo:+$('tempo').value,saidas:+$('saidas').value,senha:`SAVM-${$('d').value}-${$('t').value}-${$('data').value}`.toUpperCase(),ps};
 let id=Math.random().toString(36).substr(2,6).toUpperCase();
 let linkGigante=location.origin+location.pathname+'?t='+cod(cfg);
-let linkCurto=`${location.origin}/Mazivila-Aval/go.html?id=${id}`;
+ultimoLink=`${location.origin}/Mazivila-Aval/go.html?id=${id}`; // GUARDA O LINK
 $('link').innerHTML=`Gerando...`;
 await fetch(FIREBASE_URL,{method:"POST",body:JSON.stringify({[id]:linkGigante})});
-$('link').innerHTML=`<b>✓ Link Gerado:</b><br><a href="${linkCurto}" target="_blank">${linkCurto}</a><br><br><button class="btn btn-green" onclick='mandarWhats("${linkCurto}")'>Enviar no WhatsApp</button>`}
- 
-function mandarWhats(link){
+$('link').innerHTML=`<b>✓ Link Gerado:</b><br><a href="${ultimoLink}" target="_blank">${ultimoLink}</a><br><br><button class="btn btn-green" id="btnWhats">Enviar no WhatsApp</button>`;
+document.getElementById('btnWhats').onclick = mandarWhats; // ADICIONA O CLIQUE DEPOIS
+}
+
+function mandarWhats(){
   const num=$('whats').value; 
   if(!num){alert('Preencha o WhatsApp Prof primeiro');return}
-  const texto = encodeURIComponent('Prova SAVM: ' + link);
+  const texto = encodeURIComponent('Prova SAVM: ' + ultimoLink);
   window.open(`https://wa.me/${num}?text=${texto}`)
 }
 
