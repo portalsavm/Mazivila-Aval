@@ -17,6 +17,12 @@ input,textarea{width:100%;padding:8px;margin:5px 0;border:1px solid #ccc;border-
 .btn-green{background:#28a745}.btn-red{background:#dc3545}
 .hidden{display:none}
 .resultado{background:#e7f3ff;padding:15px;margin-top:10px;border-radius:5px;border-left:4px solid #0a4d68}
+#tela-aluno{position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;padding:15px}
+#contadorSaidas{position:fixed;top:10px;right:10px;background:#dc3545;color:#fff;padding:10px;border-radius:8px;font-weight:bold;z-index:10000}
+.comprovativo{text-align:center;padding:30px;background:#d4edda;border:3px solid #28a745;border-radius:10px}
+.nota{font-size:50px;color:#28a745;font-weight:bold;margin:15px 0}
+.questao{margin:20px 0;padding-bottom:10px;border-bottom:1px solid #eee}
+.escola-cabecalho{text-align:center;padding:10px;background:#0a4d68;color:#fff;margin-bottom:15px;border-radius:5px}
 </style>
 </head>
 <body>
@@ -47,9 +53,12 @@ input,textarea{width:100%;padding:8px;margin:5px 0;border:1px solid #ccc;border-
 
 </div>
 
+<div id="tela-aluno" class="hidden"></div>
+
 <script>
 const { jsPDF } = window.jspdf;
-let banco=[], aluno={}, saidas=3, perguntas=[], respostasAluno=[], cont=0, config=null;
+let banco=[], aluno={}, saidas=3, perguntas=[], respostasAluno=[], cont=0, config=null, travou=false, notaFinal=0, cotacaoFinal=20;
+const NOME_ESCOLA = "Escola Secundária de Mazivila";
 const $ = id => document.getElementById(id);
 
 function addP(){
@@ -65,54 +74,34 @@ function addP(){
     <label><input type="radio" name="c${i}" value="3"> <input id="o${i}3" placeholder="Opção D"></label>`;
   $('perguntas').appendChild(div);
 }
-addP(); addP(); // já cria 2 perguntas
+addP(); addP();
 
-function formatarWhats(num){
-  let n = num.replace(/\D/g,'');
-  if(n.startsWith('258')) return n;
-  if(n.startsWith('0')) n = n.substring(1);
-  return '258' + n;
-}
-
-function coletar(){
-  banco=[];
-  document.querySelectorAll('.pergunta').forEach(p=>{
-    const i=p.id.substring(1);
-    const en=$('e'+i)?.value.trim();
-    const ce=$(`input[name="c${i}"]:checked`);
-    const op=[0,1,2,3].map(j=>$(`o${i}${j}`)?.value.trim()||"").filter(x=>x!="");
-    if(en && op.length >= 2){
-      banco.push({enun:en, opcoes:op, certa:ce?parseInt(ce.value):0});
-    }
-  });
-  if(banco.length == 0){ alert("Adicione pelo menos 1 pergunta completa"); return null; }
-  return {
-    tipo:$('tipo').value, disciplina:$('disciplina').value, classe:$('classe').value, data:$('data').value,
-    whats:formatarWhats($('whats').value), nPerg:$('nPerg').value, cotacao:$('cot').value, saidas:$('saidas').value,
-    senha:`SAVM-${$('classe').value}-${$('disciplina').value}-${$('tipo').value}-${$('data').value}`.toUpperCase(),
-    perguntas:banco
-  }
-}
-
-const cod = c => btoa(encodeURIComponent(JSON.stringify(c)));
+function formatarWhats(num){ let n = num.replace(/\D/g,''); if(n.startsWith('258')) return n; if(n.startsWith('0')) n = n.substring(1); return '258' + n; }
+function coletar(){ banco=[]; document.querySelectorAll('.pergunta').forEach(p=>{ const i=p.id.substring(1); const en=$(`e${i}`)?.value.trim(); const ce=$(`input[name="c${i}"]:checked`); const op=[0,1,2,3].map(j=>$(`o${i}${j}`)?.value.trim()||"").filter(x=>x!=""); if(en && op.length >= 2){ banco.push({enun:en, opcoes:op, certa:ce?parseInt(ce.value):0}); } }); if(banco.length == 0){ alert("Adicione pelo menos 1 pergunta completa"); return null; } return { tipo:$('tipo').value, disciplina:$('disciplina').value, classe:$('classe').value, data:$('data').value, whats:formatarWhats($('whats').value), nPerg:$('nPerg').value, cotacao:$('cot').value, saidas:$('saidas').value, senha:`SAVM-${$('classe').value}-${$('disciplina').value}-${$('tipo').value}-${$('data').value}`.toUpperCase(), perguntas:banco } }
+const cod = c => btoa(encodeURIComponent(JSON.stringify(c))); 
+const dec = c => JSON.parse(decodeURIComponent(atob(c))); 
 const gerarId = () => Math.random().toString(36).substr(2,6).toUpperCase();
 
-function gerarECurtar(){
-  const c=coletar();
-  if(!c) return;
-  if(!c.whats){alert("Preencha o WhatsApp do professor com números");return;}
+function gerarECurtar(){ const c=coletar(); if(!c) return; if(!c.whats){alert("Preencha o WhatsApp do professor com números");return;} const linkGigante = location.href.split('?')[0]+'?t='+cod(c); const id = gerarId(); let bancoLinks = JSON.parse(localStorage.getItem('SAVM_LINKS') || '{}'); bancoLinks[id] = linkGigante; localStorage.setItem('SAVM_LINKS', JSON.stringify(bancoLinks)); const linkCurto = location.href.split('?')[0].replace('index.html','') + 's.html?id=' + id; $('link').classList.remove('hidden'); $('link').innerHTML=`<b>✓ Link Curto Gerado:</b><br><a href="${linkCurto}" target="_blank">${linkCurto}</a><br><button class="btn btn-green" onclick="navigator.clipboard.writeText('${linkCurto}');alert('Copiado')">Copiar</button>`; }
 
-  const linkGigante = location.href.split('?')[0]+'?t='+cod(c);
-  const id = gerarId();
-  let bancoLinks = JSON.parse(localStorage.getItem('SAVM_LINKS') || '{}');
-  bancoLinks[id] = linkGigante;
-  localStorage.setItem('SAVM_LINKS', JSON.stringify(bancoLinks));
-  const linkCurto = location.href.split('?')[0].replace('index.html','') + 's.html?id=' + id;
-
-  $('link').classList.remove('hidden');
-  $('link').innerHTML=`<b>✓ Link Curto Gerado:</b><br><a href="${linkCurto}" target="_blank">${linkCurto}</a><br>
-  <button class="btn btn-green" onclick="navigator.clipboard.writeText('${linkCurto}');alert('Copiado')">Copiar</button>`;
+function abrir(){ 
+  const u=new URLSearchParams(location.search); 
+  const t=u.get('t'); 
+  if(!t) return; 
+  config=dec(t); 
+  $('tela-prof').classList.add('hidden'); 
+  $('tela-aluno').classList.remove('hidden'); 
+  saidas=parseInt(config.saidas)||3; 
+  $('tela-aluno').innerHTML=`<div id="contadorSaidas">Saídas: ${saidas}</div><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h3>Avaliação Virtual</h3><p><b>${config.tipo} - ${config.disciplina}</b></p><label>Nome<input id="n"></label><label>Turma<input id="tu"></label><label>Nº<input id="num"></label><button class="btn btn-green" onclick="iniciar()">Iniciar</button>`; 
 }
+function iniciar(){ aluno={nome:$('n').value.trim(),turma:$('tu').value.trim(),num:$('num').value.trim()}; if(!aluno.nome||!aluno.turma||!aluno.num){alert("Preencha todos");return;} montar(); }
+function embaralhar(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a}
+function salvarResposta(i, val){ respostasAluno[i] = parseInt(val); }
+function montar(){ respostasAluno = []; let basePerg = [...config.perguntas]; if(config.nPerg) basePerg=basePerg.slice(0,parseInt(config.nPerg)); perguntas = []; let html=`<div id="contadorSaidas">Saídas: ${saidas}</div><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h3>${config.disciplina}</h3>`; basePerg.forEach((p,i)=>{ let ops=p.opcoes.map((o,j)=>({txt:o, idx:j})); ops=embaralhar(ops); perguntas.push({gab:p.certa}); html+=`<div class="questao"><p><b>${i+1}.</b> ${p.enun}</p>`; ops.forEach((o,j)=>html+=`<label><input type="radio" name="q${i}" value="${o.idx}" onchange="salvarResposta(${i},${o.idx})"> ${o.txt}</label><br>`); html+=`</div>`; }); html+=`<button class="btn btn-red" onclick="finalizar()">FINALIZAR</button>`; $('tela-aluno').innerHTML=html; }
+function finalizar(){ let ac=0; perguntas.forEach((p,i)=>{ if(respostasAluno[i] === p.gab) ac++; }); const totalQ = perguntas.length; cotacaoFinal = parseFloat(config.cotacao) || 20; notaFinal = totalQ > 0? ((ac / totalQ) * cotacaoFinal).toFixed(1) : 0; alert(`Nota: ${notaFinal}/${cotacaoFinal}`); }
+
+// ESTA LINHA É A MAIS IMPORTANTE: Ela abre a prova se tiver?t= no link
+if(location.search.includes('t=')) abrir();
 </script>
 </body>
 </html>
