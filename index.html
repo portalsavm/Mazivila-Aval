@@ -67,7 +67,7 @@ async function gerar(){if(!$('d').value||!$('t').value||!$('data').value){alert(
 cfg={d:$('d').value,t:$('t').value,data:$('data').value,tempo:+$('tempo').value,saidas:+$('saidas').value,senha:`SAVM-${$('d').value}-${$('t').value}-${$('data').value}`.toUpperCase(),ps};
 let id=Math.random().toString(36).substr(2,6).toUpperCase();
 let linkGigante=location.origin+location.pathname+'?t='+cod(cfg);
-let linkCurto=`${location.origin}/Mazivila-Aval/s/${id}`;
+let linkCurto=`${location.origin}/Mazivila-Aval/go.html?id=${id}`; // <- AQUI MUDOU
 $('link').innerHTML=`Gerando...`;
 await fetch(FIREBASE_URL,{method:"POST",body:JSON.stringify({[id]:linkGigante})});
 $('link').innerHTML=`<b>✓ Link Gerado:</b><br><a href="${linkCurto}" target="_blank">${linkCurto}</a><br><br><button class="btn btn-green" onclick="mandarWhats('${linkCurto}')">Enviar no WhatsApp</button>`}
