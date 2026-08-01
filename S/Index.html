@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><body><script>
+(async () => {
+  const id = location.pathname.split('/').pop();
+  const res = await fetch(`https://maziva--links-default-rtdb.firebaseio.com/links/${id}.json`);
+  const link = await res.json();
+  if(link) location.replace(link);
+  else document.body.innerHTML = "<h1 style='text-align:center;margin-top:50px'>Link expirado ou inválido</h1>";
+})();
+</script></body></html>
