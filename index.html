@@ -31,7 +31,6 @@ footer{text-align:center;padding:15px;font-size:12px;color:#666;margin-top:20px}
 
 <header>
     <h1>Escola Secundária de Mazivila</h1>
-  
   <p>SAVM-Sistema de Avaliação Virtual Mazivila</p>
 </header>
 
@@ -52,7 +51,7 @@ footer{text-align:center;padding:15px;font-size:12px;color:#666;margin-top:20px}
 
   <h2>III.Gerar Avaliação</h2>
   <button class="btn btn-green" onclick="preview()">Pré-visualizar</button>
-  <button class="btn" onclick="gerar()">Gerar Link do Teste</button>
+  <button class="btn" onclick="gerarLink()">Gerar Link do Teste</button>
   <div id="link" class="hidden" style="background:#e7f3ff;padding:15px;margin-top:10px;border-radius:5px"></div>
 </div>
 
@@ -67,6 +66,7 @@ const { jsPDF } = window.jspdf;
 let banco=[], aluno={}, saidas=3, perguntas=[], respostasAluno=[], cont=0, config=null, travou=false, notaFinal=0, cotacaoFinal=20;
 const NOME_ESCOLA = "Escola Secundária de Mazivila";
 const $ = id => document.getElementById(id);
+const FIREBASE_URL = "https://maziva--links-default-rtdb.firebaseio.com/links.json";
 
 function addP(){
   const i=cont++;
@@ -85,10 +85,10 @@ function addP(){
 addP(); addP();
 
 function formatarWhats(num){
-  let n = num.replace(/\D/g,''); // tira tudo que não é número
-  if(n.startsWith('258')) return n; // já tem 258
-  if(n.startsWith('0')) n = n.substring(1); // tira o 0 inicial
-  return '258' + n; // adiciona 258
+  let n = num.replace(/\D/g,''); 
+  if(n.startsWith('258')) return n;
+  if(n.startsWith('0')) n = n.substring(1);
+  return '258' + n;
 }
 
 function coletar(){
@@ -98,17 +98,11 @@ function coletar(){
     const en=$('e'+i)?.value.trim();
     const ce=$(`input[name="c${i}"]:checked`);
     const op=[0,1,2,3].map(j=>$(`o${i}${j}`)?.value.trim()||"").filter(x=>x!="");
-
     if(en && op.length >= 2){
       banco.push({enun:en, opcoes:op, certa:ce?parseInt(ce.value):0});
     }
   });
-
-  if(banco.length == 0){
-    alert("Adicione pelo menos 1 pergunta completa com 2 opções!");
-    return null;
-  }
-
+  if(banco.length == 0){ alert("Adicione pelo menos 1 pergunta completa com 2 opções!"); return null; }
   return {
     tipo:$('tipo').value, disciplina:$('disciplina').value, classe:$('classe').value, data:$('data').value,
     whats:formatarWhats($('whats').value), nPerg:$('nPerg').value, cotacao:$('cot').value, saidas:$('saidas').value,
@@ -126,25 +120,14 @@ function preview(){
   window.open(location.href.split('?')[0]+'?t='+cod(c)+'&p=1','_blank');
 }
 
-function gerar(){
-  const FIREBASE_URL = "https://maziva--links-default-rtdb.firebaseio.com/links.json";
-
 function gerarID(){ return Math.random().toString(36).substr(2,6).toUpperCase(); }
 
 async function gerarLink(){
+  const config = coletar();
+  if(!config) return;
+  
   const id = gerarID();
-  const config = { // pega as config da prova
-    tipo: $('tipo').value,
-    disciplina: $('disciplina').value,
-    classe: $('classe').value,
-    data: $('data').value,
-    nPerg: $('nPerg').value,
-    cotacao: $('cotacao').value,
-    saidas: $('saidas').value,
-    senha: $('senha').value,
-    perguntas: perguntas // tua variável de perguntas
-  };
-  const linkGigante = location.origin + location.pathname + '?t=' + encodeURIComponent(btoa(JSON.stringify(config)));
+  const linkGigante = location.origin + location.pathname + '?t=' + cod(config);
   const linkCurto = `${location.origin}/Mazivila-Aval/s/${id}`;
 
   // SALVA NO FIREBASE AUTOMATICO
@@ -154,13 +137,14 @@ async function gerarLink(){
   });
 
   // MANDA PRO WHATSAPP
-  window.open(`https://wa.me/258${whats}?text=Prova SAVM: ${linkCurto}`);
-  alert(`Link Curto Criado: ${linkCurto}`);
+  window.open(`https://wa.me/${config.whats}?text=Prova SAVM: ${linkCurto}`);
+  $('link').classList.remove('hidden');
+  $('link').innerHTML = `<b>Link Curto:</b> <a href="${linkCurto}" target="_blank">${linkCurto}</a>`;
 }
+
 function verificarBloqueio(num,senha){
   try{ return JSON.parse(localStorage.getItem('BLOQ_'+senha)||'[]').includes(num); } catch(e){ return false; }
 }
-
 function salvarBloqueio(num,senha){
   try{
     let l=JSON.parse(localStorage.getItem('BLOQ_'+senha)||'[]');
@@ -168,7 +152,6 @@ function salvarBloqueio(num,senha){
     localStorage.setItem('BLOQ_'+senha,JSON.stringify(l));
   } catch(e){}
 }
-
 function abrir(){
   const u=new URLSearchParams(location.search); const t=u.get('t'); if(!t) return;
   config=dec(t);
@@ -182,7 +165,6 @@ function abrir(){
   <label>Nome Completo<input id="n"></label><label>Turma<input id="tu"></label><label>Nº<input id="num"></label>
   <button class="btn btn-green" onclick="iniciar()">Iniciar Avaliação</button>`;
 }
-
 function iniciar(){
   aluno={nome:$('n').value.trim(),turma:$('tu').value.trim(),num:$('num').value.trim()};
   if(!aluno.nome||!aluno.turma||!aluno.num){alert("Preencha todos os dados");return;}
@@ -190,35 +172,28 @@ function iniciar(){
   montar();
   document.addEventListener('visibilitychange',contar);
 }
-
 function contar(){
   if(travou||!document.hidden) return;
   saidas--; if($('contadorSaidas')) $('contadorSaidas').innerText='Saídas: '+saidas;
   if(saidas<=0) finalizar(true);
 }
-
 function embaralhar(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a}
-
 function salvarResposta(i, val){ respostasAluno[i] = parseInt(val); }
-
 function montar(){
   document.removeEventListener('visibilitychange',contar);
   respostasAluno = [];
   let basePerg = [...config.perguntas];
   if(config.nPerg && config.nPerg!= "") basePerg=basePerg.slice(0,parseInt(config.nPerg));
-
   perguntas = [];
   let valorQuestao = (parseFloat(config.cotacao)/basePerg.length).toFixed(1);
   let html=`<div id="contadorSaidas">Saídas: ${saidas}</div>
   <div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div>
   <h3>${config.disciplina} - ${config.tipo}</h3>
   <div style="background:#f0f8ff;padding:10px;border-radius:5px"><p><b>Aluno:</b> ${aluno.nome} | <b>Turma:</b> ${aluno.turma} | <b>Nº:</b> ${aluno.num}</p><p><b>Total de Questões:</b> ${basePerg.length} | <b>Cada questão vale:</b> ${valorQuestao} valores</p></div>`;
-
   basePerg.forEach((p,i)=>{
     let ops=p.opcoes.map((o,j)=>({txt:o, idx:j}));
     ops=embaralhar(ops);
     perguntas.push({gab:p.certa});
-
     html+=`<div class="questao"><p><b>${i+1}.</b> ${p.enun}</p>`;
     ops.forEach((o,j)=>html+=`<label style="display:block;margin:5px 0"><input type="radio" name="q${i}" value="${o.idx}" onchange="salvarResposta(${i},${o.idx})"> ${o.txt}</label>`);
     html+=`</div>`;
@@ -227,7 +202,6 @@ function montar(){
   $('tela-aluno').innerHTML=html;
   document.addEventListener('visibilitychange',contar);
 }
-
 function finalizar(forca){
   if(travou) return;
   if(!forca){
@@ -239,17 +213,13 @@ function finalizar(forca){
   travou=true;
   document.removeEventListener('visibilitychange',contar);
   salvarBloqueio(aluno.num, config.senha);
-
   let ac=0;
   perguntas.forEach((p,i)=>{ if(respostasAluno[i] === p.gab) ac++; });
-
   const totalQ = perguntas.length;
   cotacaoFinal = parseFloat(config.cotacao) || 20;
   notaFinal = totalQ > 0? ((ac / totalQ) * cotacaoFinal).toFixed(1) : 0;
-
   gerarPDF(notaFinal,ac,totalQ,cotacaoFinal,forca);
   setTimeout(()=>{ enviarAutoWhats(notaFinal, ac, totalQ, forca); }, 1500);
-
   $('tela-aluno').innerHTML=`<div class="comprovativo"><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h2>✓ AVALIAÇÃO ENVIADA</h2>
   <p>${forca?'AVALIAÇÃO FECHADA POR EXCESSO DE SAÍDAS':'Enviada com sucesso'}</p>
   <p><b>${aluno.nome}</b> - Turma ${aluno.turma}</p>
@@ -258,7 +228,6 @@ function finalizar(forca){
   <p style="color:#25D366"><b>1. PDF baixado automaticamente</b><br><b>2. Clique em ENVIAR no WhatsApp</b></p></div>`;
   setTimeout(()=>{$('tela-aluno').innerHTML=`<div class="comprovativo"><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h2>FINALIZADO</h2><p>Obrigado por participar</p></div>`},10000);
 }
-
 function gerarPDF(nota,ac,totalQ,cot,forca){
   try{
     const doc=new jsPDF();
@@ -278,7 +247,6 @@ function gerarPDF(nota,ac,totalQ,cot,forca){
     doc.save(`Comprovativo_${NOME_ESCOLA.split(' ').pop()}_${aluno.num}.pdf`);
   }catch(e){}
 }
-
 function enviarAutoWhats(nota, ac, total, forca){
   const num = config.whats;
   const motivo = forca? "FECHADO POR SAIDAS" : "FINALIZADO";
@@ -294,8 +262,7 @@ function enviarAutoWhats(nota, ac, total, forca){
               `*INSTRUÇÃO:* Anexe o PDF e envie.`;
   window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,'_blank');
 }
-
 if(location.search.includes('t=')) abrir();
 </script>
 </body>
-</html>
+    </html>
