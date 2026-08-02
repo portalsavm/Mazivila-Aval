@@ -241,20 +241,15 @@ function gerarECurtar(){
   const enviando = document.querySelector('.carregando');
   if(enviando){ alert("Aguarde terminar de enviar as imagens"); return; }
 
-  const linkGigante = location.href.split('?')[0]+'?t='+cod(c);
-  const id = gerarId();
-  let bancoLinks = JSON.parse(localStorage.getItem('SAVM_LINKS') || '{}');
-  bancoLinks[id] = linkGigante;
-  localStorage.setItem('SAVM_LINKS', JSON.stringify(bancoLinks));
-  linkGerado = location.href.split('?')[0].replace('index.html','') + 's.html?id=' + id;
+  // CORREÇÃO: Link direto com?t=
+  linkGerado = location.href.split('?')[0] + '?t=' + cod(c);
 
   $('link').classList.remove('hidden');
   $('relatorio').classList.add('hidden');
   $('link').innerHTML=`<b>Link Curto Gerado:</b><br><a href="${linkGerado}" target="_blank">${linkGerado}</a><br>
   <button class="btn btn-green" onclick="navigator.clipboard.writeText('${linkGerado}');alert('Copiado')">Copiar</button>
   <button class="btn btn-whats" onclick="enviarWhats()">Enviar no WhatsApp</button>`;
-}
-
+    }
 // COPIA O RESTO DAS FUNÇÕES: verRelatorio, apagarRelatorio, exportarExcel, enviarWhats, abrir, iniciar, etc...
 // É igual ao código anterior
 
