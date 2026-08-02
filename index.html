@@ -41,9 +41,9 @@ label input[type="radio"]{width:auto;margin-right:8px}
 .camera-botoes{margin-top:10px}
 .upload-status{font-size:12px;color:#28a745;margin-top:5px}
 .carregando{color:#0a4d68}
-table{width:100%;border-collapse:collapse;margin-top:15px}
-table th{background:#0a4d68;color:#fff;padding:10px;text-align:left}
-table td{padding:10px;border-bottom:1px solid #ddd}
+table{width:100%;border-collapse:collapse;margin-top:15px;font-size:13px}
+table th{background:#0a4d68;color:#fff;padding:8px;text-align:left}
+table td{padding:8px;border-bottom:1px solid #ddd}
 </style>
 </head>
 <body>
@@ -88,7 +88,7 @@ table td{padding:10px;border-bottom:1px solid #ddd}
 
 <script>
 const { jsPDF } = window.jspdf;
-let banco=[], aluno={}, saidas=3, perguntas=[], respostasAluno=[], cont=0, config=null, notaFinal=0, cotacaoFinal=20, linkGerado="", provaIniciada=false;
+let banco=[], aluno={}, saidas=3, perguntas=[], respostasAluno=[], cont=0, config=null, notaFinal=0, cotacaoFinal=20, linkGerado="", provaIniciada=false, saidasUsadas=0;
 let streamAtual=null, perguntaCameraAtual=null;
 const NOME_ESCOLA = "Escola Secundária de Mazivila";
 const IMGBB_KEY = "427e4d6479c56aba1bee0eaadaa4b985";
@@ -123,90 +123,13 @@ function addP(){
 }
 addP(); addP();
 
-async function uploadImgBB(base64, i){
-  $(`status${i}`).innerHTML = `<span class="carregando">Enviando imagem...</span>`;
-  const formData = new FormData();
-  formData.append("image", base64.split(',')[1]);
-  try{
-    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method: "POST", body: formData});
-    const data = await res.json();
-    if(data.success){
-      $(`status${i}`).innerHTML = `<span>✓ Imagem enviada</span>`;
-      return data.data.url;
-    }else{ throw new Error(data.error.message); }
-  }catch(e){
-    $(`status${i}`).innerHTML = `<span style="color:red">Erro ao enviar</span>`;
-    alert("Erro ao enviar imagem: " + e.message);
-    return "";
-  }
-}
-
-async function abrirCamera(i){
-  perguntaCameraAtual = i;
-  $('cameraModal').style.display = 'flex';
-  try{
-    streamAtual = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
-    $('cameraVideo').srcObject = streamAtual;
-  }catch(e){
-    alert("Não foi possível acessar a câmera: " + e.message + "\n\nDica: Use em https://");
-    fecharCamera();
-  }
-}
-
-function fecharCamera(){
-  $('cameraModal').style.display = 'none';
-  if(streamAtual){
-    streamAtual.getTracks().forEach(track => track.stop());
-    streamAtual = null;
-  }
-}
-
-async function tirarFoto(){
-  const video = $('cameraVideo');
-  const canvas = $('cameraCanvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-  fecharCamera();
-  const url = await uploadImgBB(dataUrl, perguntaCameraAtual);
-  if(url) setImagem(perguntaCameraAtual, url);
-}
-
-async function lerArquivo(input, i){
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async ev => {
-    let img = new Image();
-    img.onload = async function(){
-      let canvas = document.createElement('canvas');
-      let ctx = canvas.getContext('2d');
-      let maxW = 1000;
-      let scale = maxW / img.width;
-      canvas.width = maxW;
-      canvas.height = img.height * scale;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-      const url = await uploadImgBB(dataUrl, i);
-      if(url) setImagem(i, url);
-    }
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-  input.value = "";
-}
-
-function setImagem(i, src){
-  $(`img${i}`).value = src;
-  $(`imgContainer${i}`).innerHTML = `<div style="position:relative;display:inline-block"><img src="${src}" class="preview-img"><button class="btn-remove-img" onclick="removerImagem(${i})">X</button></div>`;
-}
-
-function removerImagem(i){
-  $(`img${i}`).value = "";
-  $(`imgContainer${i}`).innerHTML = "";
-  $(`status${i}`).innerHTML = "";
-}
+async function uploadImgBB(base64, i){ $(`status${i}`).innerHTML = `<span class="carregando">Enviando imagem...</span>`; const formData = new FormData(); formData.append("image", base64.split(',')[1]); try{ const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method: "POST", body: formData}); const data = await res.json(); if(data.success){ $(`status${i}`).innerHTML = `<span>✓ Imagem enviada</span>`; return data.data.url; }else{ throw new Error(data.error.message); }}catch(e){ $(`status${i}`).innerHTML = `<span style="color:red">Erro ao enviar</span>`; alert("Erro ao enviar imagem: " + e.message); return ""; }}
+async function abrirCamera(i){ perguntaCameraAtual = i; $('cameraModal').style.display = 'flex'; try{ streamAtual = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}}); $('cameraVideo').srcObject = streamAtual; }catch(e){ alert("Não foi possível acessar a câmera: " + e.message + "\n\nDica: Use em https://"); fecharCamera(); }}
+function fecharCamera(){ $('cameraModal').style.display = 'none'; if(streamAtual){ streamAtual.getTracks().forEach(track => track.stop()); streamAtual = null; }}
+async function tirarFoto(){ const video = $('cameraVideo'); const canvas = $('cameraCanvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); fecharCamera(); const url = await uploadImgBB(dataUrl, perguntaCameraAtual); if(url) setImagem(perguntaCameraAtual, url);}
+async function lerArquivo(input, i){ const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = async ev => { let img = new Image(); img.onload = async function(){ let canvas = document.createElement('canvas'); let ctx = canvas.getContext('2d'); let maxW = 1000; let scale = maxW / img.width; canvas.width = maxW; canvas.height = img.height * scale; ctx.drawImage(img, 0, 0, canvas.width, canvas.height); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); const url = await uploadImgBB(dataUrl, i); if(url) setImagem(i, url);} img.src = ev.target.result;}; reader.readAsDataURL(file); input.value = "";}
+function setImagem(i, src){ $(`img${i}`).value = src; $(`imgContainer${i}`).innerHTML = `<div style="position:relative;display:inline-block"><img src="${src}" class="preview-img"><button class="btn-remove-img" onclick="removerImagem(${i})">X</button></div>`;}
+function removerImagem(i){ $(`img${i}`).value = ""; $(`imgContainer${i}`).innerHTML = ""; $(`status${i}`).innerHTML = "";}
 
 function formatarWhats(num){ let n = num.replace(/\D/g,''); if(n.startsWith('258')) return n; if(n.startsWith('0')) n = n.substring(1); return '258' + n; }
 
@@ -218,7 +141,6 @@ function coletar(){
     const ce=$(`input[name="c${i}"]:checked`);
     const op=[0,1,2,3].map(j=>$(`o${i}${j}`)?.value.trim()||"").filter(x=>x!="");
     const imagem = $(`img${i}`)?.value.trim();
-
     if(en && op.length >= 2){ banco.push({enun:en, opcoes:op, certa:ce?parseInt(ce.value):0, imagem: imagem || ""}); }
   });
   if(banco.length == 0){ alert("Adicione pelo menos 1 pergunta completa"); return null; }
@@ -230,7 +152,9 @@ function coletar(){
 
 const cod = c => btoa(encodeURIComponent(JSON.stringify(c)));
 const dec = c => JSON.parse(decodeURIComponent(atob(c)));
+const gerarId = () => Math.random().toString(36).substr(2,6).toUpperCase(); // NOVO
 
+// ATUALIZAÇÃO 1: LINK CURTO
 function gerarECurtar(){
   const c=coletar();
   if(!c) return;
@@ -239,7 +163,12 @@ function gerarECurtar(){
   const enviando = document.querySelector('.carregando');
   if(enviando){ alert("Aguarde terminar de enviar as imagens"); return; }
 
-  linkGerado = location.href.split('?')[0] + '?t=' + cod(c);
+  const id = gerarId();
+  const linkGigante = location.href.split('?')[0]+'?t='+cod(c);
+  let bancoLinks = JSON.parse(localStorage.getItem('SAVM_LINKS') || '{}');
+  bancoLinks[id] = linkGigante;
+  localStorage.setItem('SAVM_LINKS', JSON.stringify(bancoLinks));
+  linkGerado = location.href.split('?')[0] + '?id=' + id; // LINK CURTO
 
   $('link').classList.remove('hidden');
   $('relatorio').classList.add('hidden');
@@ -248,21 +177,84 @@ function gerarECurtar(){
   <button class="btn btn-whats" onclick="enviarWhats()">Enviar no WhatsApp</button>`;
 }
 
-function verRelatorio(){/*...*/const c=coletar();if(!c)return;if(!c.tipo||!c.disciplina||!c.classe||!c.data){alert("Preencha Tipo, Disciplina, Classe e Data primeiro");return;}$('link').classList.add('hidden');$('relatorio').classList.remove('hidden');let html=`<h3>Relatório: ${c.tipo} - ${c.disciplina} - ${c.classe}</h3>`;html+=`<button class="btn btn-excel" onclick="exportarExcel()">Exportar Excel</button>`;html+=`<button class="btn btn-red" onclick="apagarRelatorio()">Apagar Notas dessa Prova</button>`;html+=`<table id="tabelaNotas"><tr><th>Nome</th><th>Turma</th><th>Nº</th><th>Nota</th><th>Data</th></tr>`;let achou=false;for(let i=0;i<localStorage.length;i++){const chave=localStorage.key(i);if(chave.startsWith(`SAVM_FEITO_${c.senha}`)){const dados=JSON.parse(localStorage.getItem(chave));const partes=chave.split('_');const turma=partes[partes.length-2];const num=partes[partes.length-1];html+=`<tr><td>${dados.nome}</td><td>${turma}</td><td>${num}</td><td><b>${dados.nota}/${c.cotacao}</b></td><td>${dados.data}</td></tr>`;achou=true;}}if(!achou)html+=`<tr><td colspan="5">Nenhum aluno fez esta prova ainda.</td></tr>`;html+=`</table>`;$('relatorio').innerHTML=html;}
-function apagarRelatorio(){const c=coletar();if(!c)return;if(!confirm(`Tem certeza que quer apagar TODAS notas de ${c.tipo} - ${c.disciplina} - ${c.classe}?\n\nEssa ação não pode ser desfeita.`))return;let apagados=0;for(let i=localStorage.length-1;i>=0;i--){const chave=localStorage.key(i);if(chave.startsWith(`SAVM_FEITO_${c.senha}`)){localStorage.removeItem(chave);apagados++;}}alert(`${apagados} notas apagadas com sucesso!`);verRelatorio();}
-function exportarExcel(){const c=coletar();let dados=[];dados.push(["Nome","Turma","Nº","Nota","Data"]);for(let i=0;i<localStorage.length;i++){const chave=localStorage.key(i);if(chave.startsWith(`SAVM_FEITO_${c.senha}`)){const dadosAluno=JSON.parse(localStorage.getItem(chave));const partes=chave.split('_');const turma=partes[partes.length-2];const num=partes[partes.length-1];dados.push([dadosAluno.nome,turma,num,`${dadosAluno.nota}/${c.cotacao}`,dadosAluno.data]);}}const ws=XLSX.utils.aoa_to_sheet(dados);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Notas");XLSX.writeFile(wb,`Relatorio_${c.disciplina}_${c.classe}_${c.tipo}.xlsx`);}
+// ATUALIZAÇÃO 2: RELATÓRIO COM SAÍDAS E OBSERVAÇÃO
+function verRelatorio(){
+  const c=coletar();
+  if(!c) return;
+  if(!c.tipo||!c.disciplina||!c.classe||!c.data){alert("Preencha Tipo, Disciplina, Classe e Data primeiro");return;}
+  $('link').classList.add('hidden');$('relatorio').classList.remove('hidden');
+  let html=`<h3>Relatório: ${c.tipo} - ${c.disciplina} - ${c.classe}</h3>`;
+  html+=`<button class="btn btn-excel" onclick="exportarExcel()">Exportar Excel</button>`;
+  html+=`<button class="btn btn-red" onclick="apagarRelatorio()">Apagar Notas dessa Prova</button>`;
+  html+=`<table id="tabelaNotas"><tr><th>Nome</th><th>Turma</th><th>Nº</th><th>Nota</th><th>Saídas</th><th>Observação</th><th>Data</th></tr>`;
+  let achou=false;
+  for(let i=0;i<localStorage.length;i++){
+    const chave=localStorage.key(i);
+    if(chave.startsWith(`SAVM_FEITO_${c.senha}`)){
+      const dados=JSON.parse(localStorage.getItem(chave));
+      const partes=chave.split('_');
+      const turma=partes[partes.length-2];
+      const num=partes[partes.length-1];
+      const obs = dados.saidasUsadas >= c.saidas? "Bloqueado por saídas" : "Finalizou";
+      html+=`<tr><td>${dados.nome}</td><td>${turma}</td><td>${num}</td><td><b>${dados.nota}/${c.cotacao}</b></td><td>${dados.saidasUsadas}/${c.saidas}</td><td>${obs}</td><td>${dados.data}</td></tr>`;
+      achou=true;
+    }
+  }
+  if(!achou)html+=`<tr><td colspan="7">Nenhum aluno fez esta prova ainda.</td></tr>`;
+  html+=`</table>`;$('relatorio').innerHTML=html;
+}
+
+function apagarRelatorio(){const c=coletar();if(!c)return;if(!confirm(`Tem certeza que quer apagar TODAS notas de ${c.tipo} - ${c.disciplina} - ${c.classe}?`))return;let apagados=0;for(let i=localStorage.length-1;i>=0;i--){const chave=localStorage.key(i);if(chave.startsWith(`SAVM_FEITO_${c.senha}`)){localStorage.removeItem(chave);apagados++;}}alert(`${apagados} notas apagadas com sucesso!`);verRelatorio();}
+function exportarExcel(){const c=coletar();let dados=[];dados.push(["Nome","Turma","Nº","Nota","Saídas","Observação","Data"]);for(let i=0;i<localStorage.length;i++){const chave=localStorage.key(i);if(chave.startsWith(`SAVM_FEITO_${c.senha}`)){const dadosAluno=JSON.parse(localStorage.getItem(chave));const partes=chave.split('_');const turma=partes[partes.length-2];const num=partes[partes.length-1];const obs = dadosAluno.saidasUsadas >= c.saidas? "Bloqueado por saídas" : "Finalizou";dados.push([dadosAluno.nome,turma,num,`${dadosAluno.nota}/${c.cotacao}`,`${dadosAluno.saidasUsadas}/${c.saidas}`,obs,dadosAluno.data]);}}const ws=XLSX.utils.aoa_to_sheet(dados);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Notas");XLSX.writeFile(wb,`Relatorio_${c.disciplina}_${c.classe}_${c.tipo}.xlsx`);}
 function enviarWhats(){const texto=`Olá! Link da avaliação SAVM - ${$('disciplina').value} - ${$('classe').value}%0A*Tipo:* ${$('tipo').value} *Data:* ${$('data').value}%0A%0A${linkGerado}`;const url=`https://wa.me/${$('whats').value}?text=${texto}`;window.open(url,'_blank');}
-function abrir(){const u=new URLSearchParams(location.search);const t=u.get('t');if(!t)return;config=dec(t);$('tela-prof').classList.add('hidden');$('tela-aluno').classList.remove('hidden');saidas=parseInt(config.saidas)||1;$('tela-aluno').innerHTML=`<div id="contadorSaidas">Saídas: ${saidas}</div><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h3>Avaliação Virtual</h3><p><b>${config.tipo} - ${config.disciplina} - ${config.classe}</b></p><label>Nome<input id="n"></label><label>Turma<input id="tu"></label><label>Nº<input id="num"></label><button class="btn btn-green" onclick="iniciar()">Iniciar</button>`;}
+
+// ATUALIZAÇÃO 3: ABRIR COM?id=
+function abrir(){
+  const u=new URLSearchParams(location.search);
+  let t=u.get('t');
+  const id=u.get('id');
+  if(id){
+    let bancoLinks = JSON.parse(localStorage.getItem('SAVM_LINKS') || '{}');
+    if(bancoLinks[id]){
+      const urlParams = new URLSearchParams(bancoLinks[id].split('?')[1]);
+      t = urlParams.get('t');
+    }
+  }
+  if(!t)return;
+  config=dec(t);
+  $('tela-prof').classList.add('hidden');$('tela-aluno').classList.remove('hidden');
+  saidas=parseInt(config.saidas)||1;
+  saidasUsadas=0; // NOVO
+  $('tela-aluno').innerHTML=`<div id="contadorSaidas">Saídas: ${saidas}</div><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h3>Avaliação Virtual</h3><p><b>${config.tipo} - ${config.disciplina} - ${config.classe}</b></p><label>Nome<input id="n"></label><label>Turma<input id="tu"></label><label>Nº<input id="num"></label><button class="btn btn-green" onclick="iniciar()">Iniciar</button>`;
+}
+
 function getChaveAluno(turma,num,senha){return `SAVM_FEITO_${senha}_${turma}_${num}`.toUpperCase();}
 function iniciar(){const nome=$('n').value.trim();const turma=$('tu').value.trim();const num=$('num').value.trim();$('tu').classList.remove('erro');$('num').classList.remove('erro');let erro=false;if(!nome){alert("Preencha o Nome");return;}if(!turma){$('tu').classList.add('erro');erro=true;}if(!num){$('num').classList.add('erro');erro=true;}if(erro){alert("Preencha Turma e Nº para iniciar");return;}const chave=getChaveAluno(turma,num,config.senha);if(localStorage.getItem(chave)){$('tela-aluno').innerHTML=`<div class="bloqueado"><h2>ACESSO BLOQUEADO</h2><p>Aluno da Turma ${turma} Nº ${num} já realizou esta avaliação.</p><p>Prova: ${config.tipo} - ${config.disciplina}</p></div>`;return;}aluno={nome,turma,num};provaIniciada=true;montar();monitorarSaida();}
-function monitorarSaida(){document.addEventListener('visibilitychange',()=>{if(document.hidden&&provaIniciada){saidas--;if($('contadorSaidas'))$('contadorSaidas').innerText=`Saídas: ${saidas}`;if(saidas<=0){alert("Limite de saídas atingido! Prova será finalizada.");finalizar();}else{alert(`Atenção! Você saiu da prova. Restam ${saidas} saídas.`);}}});}
+function monitorarSaida(){document.addEventListener('visibilitychange',()=>{if(document.hidden&&provaIniciada){saidasUsadas++; saídas--; if($('contadorSaidas'))$('contadorSaidas').innerText=`Saídas: ${saidas}`;if(saidas<=0){alert("Limite de saídas atingido! Prova será finalizada.");finalizar("bloqueado");}else{alert(`Atenção! Você saiu da prova. Restam ${saidas} saídas.`);}}});}
 function embaralhar(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function salvarResposta(i,val){respostasAluno[i]=parseInt(val);}
 function montar(){respostasAluno=[];let basePerg=[...config.perguntas];if(config.nPerg)basePerg=basePerg.slice(0,parseInt(config.nPerg));basePerg=embaralhar(basePerg);perguntas=[];let html=`<div id="contadorSaidas">Saídas: ${saidas}</div><div class="escola-cabecalho"><h2>${NOME_ESCOLA}</h2></div><h3>${config.disciplina} - ${aluno.nome}</h3>`;basePerg.forEach((p,i)=>{let ops=p.opcoes.map((o,j)=>({txt:o,idx:j}));ops=embaralhar(ops);perguntas.push({gab:p.certa});html+=`<div class="questao"><p><b>${i+1}.</b> ${p.enun}</p>`;if(p.imagem)html+=`<img src="${p.imagem}">`;ops.forEach((o,j)=>html+=`<label style="text-align:left;display:block"><input type="radio" name="q${i}" value="${o.idx}" onchange="salvarResposta(${i},${o.idx})"> ${o.txt}</label>`);html+=`</div>`;});html+=`<button class="btn btn-red" onclick="finalizar()">FINALIZAR</button>`;$('tela-aluno').innerHTML=html;}
 function gerarPDF(){const doc=new jsPDF();doc.setFontSize(16);doc.text(NOME_ESCOLA,105,20,{align:"center"});doc.setFontSize(12);doc.text(`COMPROVATIVO DE AVALIAÇÃO`,105,30,{align:"center"});doc.line(20,35,190,35);doc.text(`Aluno: ${aluno.nome}`,20,45);doc.text(`Turma: ${aluno.turma} Nº: ${aluno.num}`,20,53);doc.text(`Disciplina: ${config.disciplina}`,20,61);doc.text(`Tipo: ${config.tipo}`,20,69);doc.text(`Data: ${config.data}`,20,77);doc.setFontSize(20);doc.text(`NOTA: ${notaFinal}/${cotacaoFinal}`,105,95,{align:"center"});doc.setFontSize(10);doc.text(`Sistema SAVM - ${new Date().toLocaleString()}`,105,110,{align:"center"});doc.save(`Comprovativo_${aluno.nome}.pdf`);}
-function enviarNotaWhats(){const msg=`*RESULTADO SAVM*%0A%0A*Aluno:* ${aluno.nome}%0A*Turma:* ${aluno.turma} Nº${aluno.num}%0A*Disciplina:* ${config.disciplina}%0A*Tipo:* ${config.tipo}%0A*Nota:* ${notaFinal}%0A*Data:* ${config.data}`;const url=`https://wa.me/${config.whats}?text=${msg}`;window.open(url,'_blank');}
-function finalizar(){provaIniciada=false;let ac=0;perguntas.forEach((p,i)=>{if(respostasAluno[i]===p.gab)ac++;});const totalQ=perguntas.length;cotacaoFinal=parseFloat(config.cotacao)||20;notaFinal=totalQ>0?((ac/totalQ)*cotacaoFinal).toFixed(1):0;const chave=getChaveAluno(aluno.turma,aluno.num,config.senha);localStorage.setItem(chave,JSON.stringify({nome:aluno.nome,nota:notaFinal,data:new Date().toLocaleString()}));$('tela-aluno').innerHTML=`<div class="comprovativo"><h2>AVALIAÇÃO FINALIZADA</h2><p><b>${aluno.nome}</b></p><p>${config.disciplina} - ${config.tipo}</p><div class="nota">${notaFinal}</div><button class="btn btn-green" onclick="gerarPDF()">Baixar Comprovativo PDF</button><button class="btn btn-whats" onclick="enviarNotaWhats()">Enviar Nota ao Professor</button></div>`;setTimeout(enviarNotaWhats,1000);}
-if(location.search.includes('t='))abrir();
+function enviarNotaWhats(){const msg=`*RESULTADO SAVM*%0A%0A*Aluno:* ${aluno.nome}%0A*Turma:* ${aluno.turma} Nº${aluno.num}%0A*Disciplina:* ${config.disciplina}%0A*Tipo:* ${config.tipo}%0A*Nota:* ${notaFinal}%0A*Saídas:* ${saidasUsadas}/${config.saidas}%0A*Data:* ${config.data}`;const url=`https://wa.me/${config.whats}?text=${msg}`;window.open(url,'_blank');}
+
+// ATUALIZAÇÃO 4: SALVAR SAIDAS + PDF AUTOMÁTICO
+function finalizar(){
+  provaIniciada=false;
+  let ac=0;
+  perguntas.forEach((p,i)=>{if(respostasAluno[i]===p.gab)ac++;});
+  const totalQ=perguntas.length;
+  cotacaoFinal=parseFloat(config.cotacao)||20;
+  notaFinal=totalQ>0?((ac/totalQ)*cotacaoFinal).toFixed(1):0;
+  const chave=getChaveAluno(aluno.turma,aluno.num,config.senha);
+  localStorage.setItem(chave,JSON.stringify({nome:aluno.nome,nota:notaFinal,data:new Date().toLocaleString(),saidasUsadas:saidasUsadas})); // SALVA SAIDAS
+
+  $('tela-aluno').innerHTML=`<div class="comprovativo"><h2>AVALIAÇÃO FINALIZADA</h2><p><b>${aluno.nome}</b></p><p>${config.disciplina} - ${config.tipo}</p><div class="nota">${notaFinal}</div><button class="btn btn-green" onclick="gerarPDF()">Baixar Comprovativo PDF</button><button class="btn btn-whats" onclick="enviarNotaWhats()">Enviar Nota ao Professor</button></div>`;
+
+  gerarPDF(); // BAIXA AUTOMÁTICO
+  setTimeout(enviarNotaWhats,1000);
+}
+
+if(location.search.includes('t=') || location.search.includes('id=')) abrir(); // ACEITA AMBOS
 </script>
 </body>
 </html>
