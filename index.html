@@ -318,4 +318,18 @@ function finalizar(){
   perguntas.forEach((p,i)=>{if(respostasAluno[i]===p.gab)ac++;});
   const totalQ=perguntas.length;
   cotacaoFinal=parseFloat(config.cotacao)||20;
- notaFinal=totalQ>
+ 
+notaFinal=totalQ>0?((ac/totalQ)*cotacaoFinal).toFixed(1):0;
+  const chave=getChaveAluno(aluno.turma,aluno.num,config.senha);
+  localStorage.setItem(chave,JSON.stringify({nome:aluno.nome,nota:notaFinal,data:new Date().toLocaleString(),saidasUsadas:saidasUsadas}));
+
+  $('tela-aluno').innerHTML=`<div class="comprovativo"><h2>AVALIAÇÃO FINALIZADA</h2><p><b>${aluno.nome}</b></p><p>${config.disciplina} - ${config.tipo}</p><div class="nota">${notaFinal}</div><button class="btn btn-green" onclick="gerarPDF()">Baixar Comprovativo PDF</button><button class="btn btn-whats" onclick="enviarNotaWhats()">Enviar Nota ao Professor</button></div>`;
+
+  gerarPDF();
+  setTimeout(enviarNotaWhats,1000);
+}
+
+if(location.search.includes('t=') || location.search.includes('id='))abrir();
+</script>
+</body>
+</html>
