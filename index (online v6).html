@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAVM - Sistema de Avaliação Virtual Mazivila</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;font-family:Arial}
+body{margin:0;background:#f4f6f9}
+header{background:#0a4d68;color:#fff;padding:20px;text-align:center}
+header h1{margin:0;font-size:24px}
+.container{max-width:900px;margin:20px auto;padding:20px;background:#fff;border-radius:8px}
+input,textarea{width:100%;padding:8px;margin:5px 0;border:1px solid #ccc;border-radius:4px}
+.pergunta{border:2px dashed #0a4d68;padding:15px;margin:15px 0;border-radius:8px;background:#f8f9fa;position:relative}
+.btn{background:#0a4d68;color:#fff;border:none;padding:10px 18px;border-radius:5px;cursor:pointer;margin:5px;font-weight:bold}
+.btn-green{background:#28a745}.btn-red{background:#dc3545}.btn-whats{background:#25D366}.btn-blue{background:#007bff}.btn-excel{background:#217346}
+.btn-small{padding:14px;font-size:24px;background:#0a4d68;color:#fff;border:none;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;margin:0 5px;cursor:pointer}
+.hidden{display:none}
+.resultado{background:#e7f3ff;padding:15px;margin-top:10px;border-radius:5px;border-left:4px solid #0a4d68}
+#tela-aluno{position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;overflow:auto;padding:15px}
+#contadorSaidas{position:fixed;top:10px;right:10px;background:#dc3545;color:#fff;padding:10px;border-radius:8px;font-weight:bold;z-index:10000}
+.comprovativo{text-align:center;padding:30px;background:#d4edda;border:3px solid #28a745;border-radius:10px}
+.nota{font-size:50px;color:#28a745;font-weight:bold;margin:15px 0}
+.questao{margin:20px 0;padding-bottom:10px;border-bottom:1px solid #eee;text-align:center}
+.questao img{max-width:400px;width:100%;height:auto;margin:10px auto;display:block;border:1px solid #ccc;border-radius:5px}
+.escola-cabecalho{text-align:center;padding:10px;background:#0a4d68;color:#fff;margin-bottom:15px;border-radius:5px}
+.erro{border:2px solid red!important}
+.aviso-vermelho{color:#dc3545;font-size:14px;font-weight:bold;margin-bottom:10px}
+.img-box{border:1px solid #0a4d68;padding:15px;border-radius:8px;margin:15px 0;background:#fff;text-align:center}
+.preview-img{max-width:400px;width:100%;height:auto;margin:10px auto;display:block;border:1px solid #ccc;border-radius:4px}
+.btn-remove-img{position:absolute;top:5px;right:5px;background:#dc3545;color:#fff;border:none;border-radius:50%;width:25px;height:25px;cursor:pointer;font-weight:bold}
+#cameraModal{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;z-index:10001;display:none;flex-direction:column;align-items:center;justify-content:center}
+#cameraVideo{width:100%;max-width:500px}
+table{width:100%;border-collapse:collapse;margin-top:15px}
+table th{background:#0a4d68;color:#fff;padding:10px;text-align:left}
+table td{padding:10px;border-bottom:1px solid #ddd}
+</style>
+</head>
+<body>
+<header>
+    <h1>Escola Secundaria de Mazivila</h1>
+  <p>SAVM-Sistema de Avaliacao Virtual Mazivila</p>
+</header>
+
+<div class="container" id="tela-prof">
+  <h2>I.Dados</h2>
+  <label>Tipo de Avaliacao <input id="tipo" placeholder="1ACS/2ACS/Teste"></label>
+  <label>Disciplina <input id="disciplina"></label>
+  <label>Classe <input id="classe"></label>
+  <label>Data de avaliacao<input id="data" type="date"></label>
+  <label>N do WhatsApp do professor<input id="whats" placeholder="+258xxxxxxxxx"></label>
+  <label>N de Perguntas <input id="nPerg" type="number"></label>
+  <label>Cotacao Total <input id="cot" type="number" value="20"></label>
+  <label>N de saidas permitidas <input id="saidas" type="number" value="2" min="1"></label>
+
+  <h2>II.Perguntas da avaliacao</h2>
+  <div id="perguntas"></div>
+  <button class="btn" onclick="addP()">+ Adicionar Pergunta</button>
+
+  <h2>III.Gerar Avaliacao</h2>
+  <button class="btn" onclick="gerarLink()">Gerar Link</button>
+  <button class="btn btn-blue" onclick="verRelatorio()"> Relatorio de Notas</button>
+  <div id="link" class="hidden resultado"></div>
+  <div id="relatorio" class="hidden resultado"></div>
+</div>
+
+<div id="tela-aluno" class="hidden"></div>
+<div id="cameraModal"><video id="cameraVideo" autoplay></video><button class="btn btn-green" onclick="tirarFoto()">Tirar Foto</button><button class="btn btn-red" onclick="fecharCamera()">Cancelar</button></div>
+
+<script>
+var banco=[], aluno={}, saidas=2, perguntas=[], respostasAluno=[], cont=0, config=null, notaFinal=0, cotacaoFinal=20, linkGerado="", provaIniciada=false, saidasUsadas=0;
+var streamAtual=null, perguntaCameraAtual=null;
+var NOME_ESCOLA = "Escola Secundaria de Mazivila";
+var IMGBB_KEY = "427e4d6479c56aba1bee0eaadaa4b985";
+var API_URL = "https://api.sheetbest.com/sheets/f571368c-451b-40c2-96f7-d8e5d9477510";
+function $(id){return document.getElementById(id);}
+
+function addP(){
+  var i=cont++;
+  var div = document.createElement('div');
+  div.className = 'pergunta';
+  div.id = 'p'+i;
+  var html = '<button style="float:right;background:#dc3545;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-weight:bold" onclick="this.parentElement.remove()">X</button>';
+  html += '<p class="aviso-vermelho">Aviso: Marque a alternativa A como correta</p>';
+  html += '<label><b>Pergunta '+(i+1)+'</b></label><textarea id="e'+i+'" placeholder="Digite a pergunta"></textarea>';
+  html += '<div class="img-box"><b>Imagem da Pergunta - Opcional</b><div id="imgContainer'+i+'"></div>';
+  html += '<label class="btn btn-small">🖼️<input type="file" id="galeria'+i+'" accept="image/*" style="display:none" onchange="lerArquivo(this, '+i+')"></label>';
+  html += '<button type="button" class="btn btn-small" onclick="abrirCamera('+i+')">📷</button>';
+  html += '<div id="status'+i+'"></div><input type="hidden" id="img'+i+'"></div>';
+  html += '<label><input type="radio" name="c'+i+'" value="0" checked> <input id="o'+i+'0" placeholder="A"></label>';
+  html += '<label><input type="radio" name="c'+i+'" value="1"> <input id="o'+i+'1" placeholder="B"></label>';
+  html += '<label><input type="radio" name="c'+i+'" value="2"> <input id="o'+i+'2" placeholder="C"></label>';
+  html += '<label><input type="radio" name="c'+i+'" value="3"> <input id="o'+i+'3" placeholder="D"></label>';
+  div.innerHTML = html;
+  $('perguntas').appendChild(div);
+}
+addP(); addP();
+
+async function uploadImgBB(base64, i){ /* igual ao anterior */ }
+async function abrirCamera(i){ perguntaCameraAtual = i; $('cameraModal').style.display = 'flex'; streamAtual = await navigator.mediaDevices.getUserMedia({video: true}); $('cameraVideo').srcObject = streamAtual; }
+function fecharCamera(){ $('cameraModal').style.display = 'none'; if(streamAtual){ streamAtual.getTracks().forEach(track => track.stop()); } }
+async function tirarFoto(){ /* igual ao anterior */ }
+async function lerArquivo(input, i){ /* igual ao anterior */ }
+function setImagem(i, src){ $(`img${i}`).value = src; $(`imgContainer${i}`).innerHTML = '<div style="position:relative"><img src="'+src+'" class="preview-img"><button class="btn-remove-img" onclick="removerImagem('+i+')">X</button></div>'; }
+function removerImagem(i){ $(`img${i}`).value = ""; $(`imgContainer${i}`).innerHTML = ""; }
+
+function coletar(){
+  banco=[];
+  document.querySelectorAll('.pergunta').forEach(function(p){
+    var i=p.id.substring(1);
+    var en=$(`e${i}`)?$(`e${i}`).value.trim():"";
+    var ce=document.querySelector('input[name="c'+i+'"]:checked');
+    var op=[0,1,2,3].map(function(j){return $(`o${i}${j}`)?$(`o${i}${j}`).value.trim():"";}).filter(function(x){return x!="";});
+    var imagem = $(`img${i}`)?$(`img${i}`).value.trim():"";
+    if(en && op.length >= 2){ banco.push({enun:en, opcoes:op, certa:ce?parseInt(ce.value):0, imagem: imagem}); }
+  });
+  if(banco.length == 0){ alert("Adicione pelo menos 1 pergunta"); return null; }
+  var saidasProf = parseInt($('saidas').value)||2;
+  var senha = 'SAVM-'+$('classe').value+'-'+$('disciplina').value+'-'+$('tipo').value+'-'+$('data').value;
+  senha = senha.toUpperCase();
+  return { tipo:$('tipo').value, disciplina:$('disciplina').value, classe:$('classe').value, data:$('data').value, whats:$('whats').value, nPerg:$('nPerg').value, cotacao:$('cot').value, saidas:saidasProf, senha: senha, perguntas:banco }
+}
+
+function cod(c){return btoa(encodeURIComponent(JSON.stringify(c)));}
+function dec(c){return JSON.parse(decodeURIComponent(atob(c)));}
+
+function gerarLink(){
+  var c=coletar(); if(!c) return;
+  linkGerado = location.href.split('?')[0]+'?t='+cod(c);
+  $('link').classList.remove('hidden');
+  $('link').innerHTML='<b>Link da Avaliacao:</b><br><a href="'+linkGerado+'" target="_blank">'+linkGerado+'</a>';
+}
+
+function verRelatorio(){
+  var c=coletar(); if(!c) return;
+  $('relatorio').classList.remove('hidden');
+  $('relatorio').innerHTML='<h3>Relatorio: '+c.tipo+' - '+c.disciplina+' - '+c.classe+'</h3><button class="btn btn-excel" onclick="baixarEZerar()">Baixar Excel e Zerar</button><div id="tabelaNuvem"></div>';
+}
+
+async function baixarEZerar(){
+  var c=coletar();
+  var res = await fetch(API_URL);
+  var dados = await res.json();
+  var dadosProva = dados.filter(function(d){return d.Senha === c.senha;});
+  if(dadosProva.length === 0){alert("Nenhuma nota"); return;}
+  dadosProva.sort(function(a,b){return parseInt(a.Numero)-parseInt(b.Numero);});
+  var plan = [["N","Nome","Turma","Nota"]];
+  dadosProva.forEach(function(d){plan.push([d.Numero,d.Nome,d.Turma,d.Nota]);});
+  var ws=XLSX.utils.aoa_to_sheet(plan);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Notas");
+  XLSX.writeFile(wb,'Pauta.xlsx');
+  if(confirm("Apagar "+dadosProva.length+" notas da base?")){
+    for(var i=0;i<dadosProva.length;i++){await fetch(API_URL+'/'+dadosProva[i].id, {method: "DELETE"});}
+    alert("Base zerada");
+  }
+}
+
+function abrir(){ /* igual ao anterior */ }
+function iniciar(){ /* igual ao anterior */ }
+function montar(){ /* igual ao anterior */ }
+async function finalizar(){ /* igual ao anterior, mas com fetch POST */ }
+
+if(location.search.includes('t='))abrir();
+</script>
+</body>
+</html>
